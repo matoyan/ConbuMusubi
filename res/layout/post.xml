@@ -1,0 +1,68 @@
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content">
+
+    <LinearLayout 
+        android:id="@+id/LinearLayout01" 
+        android:layout_width="wrap_content" 
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_weight="1">
+
+        <LinearLayout 
+            android:id="@+id/LinearLayout02" 
+            android:layout_width="wrap_content" 
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_weight="1">
+
+		<EditText
+			android:id="@+id/postText"
+			android:text="@string/testing"
+			android:layout_span="2"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content" />
+			
+	    <Button android:id="@+id/launchCamera"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Cam" />
+
+		</LinearLayout>
+		
+        <LinearLayout 
+            android:id="@+id/LinearLayout03" 
+            android:layout_width="wrap_content" 
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_weight="1">
+
+		<ImageView android:id="@+id/imgpreview"
+		 	android:layout_width="fill_parent"
+		 	android:layout_height="150px"
+		 	/>
+  
+  	    <Button android:id="@+id/submitMulti"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit to FB and Musubi" />
+
+	    <Button android:id="@+id/submitFB"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit to FB" />
+
+	    <Button android:id="@+id/submitMB"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Submit to Musubi" />
+
+	    <Button android:id="@+id/getMB"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Get Data from Musubi" />
+
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
