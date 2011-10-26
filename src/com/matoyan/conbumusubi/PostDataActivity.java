@@ -36,6 +36,7 @@ import com.facebook.android.FacebookError;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -288,22 +289,37 @@ public class PostDataActivity extends Activity implements OnClickListener{
 	}
 	
 	private void uploadToMB() throws Exception{
-		JSONObject jso = new JSONObject();
-		jso.put("filename", mTmpFile.getName());
-		
+
 		// for test 
 //		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "small.jpg");
 //		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "mid.jpg");
-		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "large.jpg");
-//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "img_1319504069753.jpg");
+//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "large.jpg");
+//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "huge.jpg");
 
-		jso.put("filedata", Base64.encodeToString(file2byte(mTmpFile), Base64.DEFAULT));
-		MemObj mbj = new MemObj("imgdata", jso);
-		
-//		MemObj mbj = new MemObj("imgdata", jso, file2byte(mTmpFile));
-		Log.d("CombuMusubiDBG", "1==================================");
-		mMusubi.getFeed().postObj(mbj);
-		Log.d("CombuMusubiDBG", "2==================================");
+		int sqnum = 1;
+		byte[][] ba = file2bytearr(mTmpFile);
+		int totalnum = ba.length;
+		for(byte[] ba2 : ba){
+			if(ba2 == null){
+				break;
+			}
+//        	Log.d("ConbuMusubiDBG", "Data2 --- "+Base64.encodeToString(ba2, Base64.DEFAULT));
+			JSONObject jso = new JSONObject();
+			jso.put("filename", mTmpFile.getName());
+			jso.put("sqnum", sqnum);
+			jso.put("totalnum", totalnum);
+
+//			jso.put("filedata", Base64.encodeToString(file2byte(mTmpFile), Base64.DEFAULT));
+			jso.put("filedata", Base64.encodeToString(ba2, Base64.DEFAULT));
+			MemObj mbj = new MemObj("imgdata", jso);
+			
+			Log.d("CombuMusubiDBG", "1==================================("+sqnum+"/"+totalnum+")");
+			mMusubi.getFeed().postObj(mbj);
+			Log.d("CombuMusubiDBG", "2==================================("+sqnum+"/"+totalnum+")");
+			
+			Toast.makeText(this, "Sent: "+sqnum+"/"+totalnum, Toast.LENGTH_SHORT).show();
+			sqnum++;
+		}
 	}
 	
 	private void uploadToMyServer(String pathToOurFile){
@@ -430,6 +446,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
 //			Toast.makeText(PostDataActivity.this, "Message Received", Toast.LENGTH_SHORT).show();
 
         	String getstr = "";
+        	String fpath = "";
         	try {
         		if(state != null){
         			Log.d("ConbuMusubi", "Message Rcvd ---------: ".concat(stateObj.getType()));
@@ -438,14 +455,42 @@ public class PostDataActivity extends Activity implements OnClickListener{
             			Toast.makeText(PostDataActivity.this, "ImageData Received!", Toast.LENGTH_SHORT).show();
         			}
         			if(!state.isNull("filename")){
-//        				File fdata = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures/", "img_cp_" + String.valueOf(System.currentTimeMillis()) + ".jpg");
-//        				File fdata = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures/", "myimg.jpg");
-//        				String fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/myimg.jpg";
-        				String fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+state.getString("filename");
+        				fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+state.getString("sqnum")+state.getString("filename")+".tmp";
         				Log.d("ConbuMusubi2", state.getString("filename"));
+        				Log.d("ConbuMusubi2", "sqnum:"+state.getString("sqnum"));
+        				Log.d("ConbuMusubi2", "totalnum:"+state.getString("totalnum"));
+        				Log.d("ConbuMusubiDBG", "Data3 --- "+state.getString("filedata"));
         				Log.d("ConbuMusubi2", fpath);
         				byte2file(Base64.decode(state.getString("filedata"), 0), fpath);
 //        				byte2file(stateObj.getRaw(), fpath);
+        				
+        				// try to conbine temporally files
+        				int totalnum = Integer.parseInt(state.getString("totalnum"));
+        				// precheck
+        				for(int i=1;i<=totalnum;i++){
+        					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+i+state.getString("filename")+".tmp";
+        					File rf = new File(fpath);
+        					if(!rf.exists()){
+        						return;
+        					}
+        				}
+        				// if all files exist, try to conbine them and delete all.
+    					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/converted_"+state.getString("filename");
+    		            FileOutputStream fos=new FileOutputStream(fpath);
+        				for(int i=1;i<=totalnum;i++){
+        					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+i+state.getString("filename")+".tmp";
+        					File rf = new File(fpath);
+        		            fos.write(file2byte(rf));
+        		            rf.delete();
+        				}
+    		            fos.close();
+    		            
+    		            // delete original file
+        				fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/"+state.getString("sqnum")+state.getString("filename");
+    					File rf = new File(fpath);
+    					if(!rf.exists()){
+    						rf.delete();
+    					}
         			}
         			if(!state.isNull("data")){
         				getstr = state.getString("data");
@@ -563,6 +608,57 @@ public class PostDataActivity extends Activity implements OnClickListener{
       }
     }
  	
+	// Functions---------------------------------------------------------------------------------------------
+    //file -> byte[]
+    private byte[][] file2bytearr(File FileData) throws Exception {
+        int size;
+        int cntsize;
+        int i = 0;
+        final int MAXFSIZE = 1024 * 100; // 100KB
+        final int MAXARRNUM = (int)Math.ceil((FileData.length() / (double)MAXFSIZE));
+        
+        byte[][] rt = new byte[MAXARRNUM][MAXFSIZE];
+        byte[] w = new byte[1024];
+        FileInputStream fin=null;
+        ByteArrayOutputStream out=null;
+        try {
+            fin=new FileInputStream(FileData);
+            out=new ByteArrayOutputStream();
+            cntsize = 0;
+            while (true) {
+                size=fin.read(w);
+//                if (size<=0 || i>=(MAXARRNUM-1)) break;
+                if (size<=0) break;
+                if (cntsize>=MAXFSIZE){
+                	out.close();
+                	rt[i] = out.toByteArray();
+//                	Log.d("ConbuMusubiDBG", "Data1 --- "+Base64.encodeToString(out.toByteArray(), Base64.DEFAULT));
+                	out = new ByteArrayOutputStream();
+                	cntsize = 0;
+                	i++;
+                }
+                out.write(w,0,size);
+                cntsize += size;
+            }
+            fin.close();
+            out.close();
+        	rt[i] = out.toByteArray();
+    		i++;
+        	while(i<MAXARRNUM){
+        		rt[i] = null;
+        		i++;
+        	}
+            return rt;
+        } catch (Exception e) {
+            try {
+                if (fin!=null) fin.close();
+                if (out!=null) out.close();
+            } catch (Exception e2) {
+            }
+            throw e;
+        }
+    }
+    
     //file -> byte[]
     private byte[] file2byte(File FileData) throws Exception {
         int size;
