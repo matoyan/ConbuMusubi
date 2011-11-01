@@ -182,7 +182,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
 		}
 
 		poststr = postText.getText().toString();
-		Toast.makeText(this, poststr, Toast.LENGTH_SHORT).show();
+		Log.d("CombuMusubi", "Msg saved: "+poststr);
 
 		if(pressed.equals("Camera")) {
 			launchCameraApp();
@@ -672,6 +672,9 @@ public class PostDataActivity extends Activity implements OnClickListener{
           imageView.setImageBitmap(resizedBitmap);
               	  
       }else if (requestCode == REQCODE_GALLERY){
+    	  if(data == null){
+    		  return;
+    	  }
           ImageView imageView = (ImageView) findViewById(R.id.imgpreview);
           Uri uri = data.getData();
           
