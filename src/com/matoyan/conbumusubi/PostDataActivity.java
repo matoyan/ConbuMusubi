@@ -35,6 +35,7 @@ import com.facebook.android.DialogError;
 import com.facebook.android.Facebook;
 import com.facebook.android.Facebook.DialogListener;
 import com.facebook.android.FacebookError;
+import com.facebook.android.SessionStore;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -42,6 +43,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -52,6 +54,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Images;
 import android.util.Base64;
@@ -597,11 +600,18 @@ public class PostDataActivity extends Activity implements OnClickListener{
     // FB connect
     private void connect_facebook ()
     {
-   	  Toast.makeText(PostDataActivity.this, "connecting", Toast.LENGTH_SHORT).show();       
+//   	  Toast.makeText(PostDataActivity.this, "connecting", Toast.LENGTH_SHORT).show();       
       m_facebook = new Facebook ("177064775705380");
+      SessionStore.restore(m_facebook, this);
       if(!m_facebook.isSessionValid()){
     	  m_facebook.authorize (this, new String[] {"email", "publish_stream"}, new LoginListener ());
       }
+    }
+    
+    // save FB login token
+    private void saveFBToken(String token, long tokenExpires){
+    	SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+    	prefs.edit().putString("FacebookToken", token).commit();
     }
     
     // FB login
@@ -610,7 +620,9 @@ public class PostDataActivity extends Activity implements OnClickListener{
       @Override
         public void onComplete (Bundle values)
         {
-    	  Toast.makeText(PostDataActivity.this, "FB login Completed.", Toast.LENGTH_SHORT).show();       
+    	  Toast.makeText(PostDataActivity.this, "FB login Completed.", Toast.LENGTH_SHORT).show();
+    	  SessionStore.save(m_facebook, PostDataActivity.this);
+    	  
 //          m_facebook_runner = new AsyncFacebookRunner (m_facebook);
 //          m_facebook_runner.request ("me/friends", new FriendsRequestListener ());
         }
