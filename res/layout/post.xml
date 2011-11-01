@@ -10,24 +10,29 @@
         android:orientation="vertical"
         android:layout_weight="1">
 
-        <LinearLayout 
-            android:id="@+id/LinearLayout02" 
-            android:layout_width="wrap_content" 
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_weight="1">
-
 		<EditText
 			android:id="@+id/postText"
 			android:text="@string/testing"
 			android:layout_span="2"
 			android:layout_width="fill_parent"
 			android:layout_height="wrap_content" />
+
+        <LinearLayout 
+            android:id="@+id/LinearLayout02" 
+            android:layout_width="wrap_content" 
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_weight="1">
 			
 	    <Button android:id="@+id/launchCamera"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:text="Cam" />
+        android:text="Camera" />
+
+	    <Button android:id="@+id/launchGallery"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Gallery" />
 
 		</LinearLayout>
 		
