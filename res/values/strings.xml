@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">ConbuMusubi</string>
     <string name="okpress">OK button is pressed.</string>
-    <string name="testing">Now testing... (Please Ignore)</string>
+    <string name="hinttxt">Input message</string>
     <string name="data_uploading">Uploading Data</string>
 </resources>

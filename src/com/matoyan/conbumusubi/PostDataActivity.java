@@ -1,7 +1,6 @@
 package com.matoyan.conbumusubi;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -12,23 +11,17 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Iterator;
-import java.util.Set;
 import java.util.Stack;
 
 import mobisocial.socialkit.Obj;
 import mobisocial.socialkit.musubi.DbFeed;
 import mobisocial.socialkit.musubi.multiplayer.FeedRenderable;
-import mobisocial.socialkit.musubi.multiplayer.TurnBasedMultiplayer;
-import mobisocial.socialkit.musubi.DbObj;
 import mobisocial.socialkit.musubi.FeedObserver;
 import mobisocial.socialkit.musubi.MemObj;
 import mobisocial.socialkit.musubi.Musubi;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.xbill.DNS.utils.base64;
-
 import com.facebook.android.AsyncFacebookRunner;
 import com.facebook.android.AsyncFacebookRunner.RequestListener;
 import com.facebook.android.DialogError;
@@ -39,22 +32,18 @@ import com.facebook.android.SessionStore;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapFactory.Options;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
-import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Images;
 import android.util.Base64;
@@ -63,7 +52,6 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Gallery;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -77,10 +65,9 @@ public class PostDataActivity extends Activity implements OnClickListener{
 	private Button submitMulti = null;
 	private Button submitFB = null;
 	private Button submitMB = null;
-	private Button getMB = null;
+	private Handler handler= new Handler();
 
 	// Image
-	private Uri mImageUri;
 	private File mTmpFile;
 	private String uploadURL;
 	private String thumbURL;
@@ -99,8 +86,8 @@ public class PostDataActivity extends Activity implements OnClickListener{
     
     // PostData
 	private String poststr;
-	Stack mystack = new Stack();
-
+	Stack <MemObj>mystack = new Stack<MemObj>();
+	
 	// static
 	private static int REQCODE_CAMERA = 99;
 	private static int REQCODE_GALLERY = 98;
@@ -110,6 +97,9 @@ public class PostDataActivity extends Activity implements OnClickListener{
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.post);
 		
+		File workdir = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures");
+		workdir.mkdirs();
+
         // for camera
 // 独自のカメラ機能を実装する場合
 //        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
@@ -136,7 +126,6 @@ public class PostDataActivity extends Activity implements OnClickListener{
 		submitMulti = (Button)findViewById( R.id.submitMulti);
 		submitFB = (Button)findViewById( R.id.submitFB);
 		submitMB = (Button)findViewById( R.id.submitMB);
-		getMB = (Button)findViewById( R.id.getMB);
 		
 		// Add listener to buttons
 		launchCamera.setOnClickListener( this);
@@ -144,7 +133,6 @@ public class PostDataActivity extends Activity implements OnClickListener{
 		submitMulti.setOnClickListener( this);
 		submitFB.setOnClickListener( this);
 		submitMB.setOnClickListener( this);
-		getMB.setOnClickListener( this);
 
 		// Initial setup for Facebook
 		connect_facebook ();
@@ -176,9 +164,6 @@ public class PostDataActivity extends Activity implements OnClickListener{
 		case R.id.submitMB:
 			pressed = "Musubi";
 			break;
-		case R.id.getMB:
-			pressed = "getMB";
-			break;
 		}
 
 		poststr = postText.getText().toString();
@@ -188,8 +173,6 @@ public class PostDataActivity extends Activity implements OnClickListener{
 			launchCameraApp();
 		}else if(pressed.equals("Gallery")){
 			launchGalleryApp();
-		}else if(pressed.equals("getMB")) {
-//			getMB();
 		}else{
 			showDL(pressed);
 		}
@@ -228,7 +211,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
 				// upload to Server
 				if(mTmpFile.isFile()){
 					Log.d ("ConbuMusubi", "imagePath" + mTmpFile.getAbsolutePath());
-					// uploadToMyServer(mTmpFile.getAbsolutePath());
+					uploadToMyServer(mTmpFile.getAbsolutePath());
 					try {
 						uploadToMB();
 					} catch (Exception e) {
@@ -274,6 +257,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
         } catch (JSONException e) {
         	Log.wtf("CombuMusubi", "Failed to post through Musubi", e);
         }
+
 	    Bundle params = new Bundle();
 	    params.putString("message", poststr);
 	    
@@ -311,65 +295,54 @@ public class PostDataActivity extends Activity implements OnClickListener{
 	    	msgstr = "<img src='"+thumbURL+"' /><br />"+poststr;
 	    }
 		return FeedRenderable.fromHtml(msgstr).getObj();
-//		return FeedRenderable.fromB64Image(b64JImage); //?
 	}
-	private JSONObject getJSONObj() throws JSONException {
-        JSONObject o = new JSONObject();
-    	o.put("data", poststr);
-    	return o;
-	}
-	
-	private void uploadToMB() throws Exception{
 
-		// for test 
-//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "small.jpg");
-//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "mid.jpg");
-//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "large.jpg");
-//		mTmpFile = new File(Environment.getExternalStorageDirectory()+"/MusubiPictures", "huge.jpg");
+	private void uploadToMB() throws Exception{
 
 		int sqnum = 1;
 		byte[][] ba = file2bytearr(mTmpFile);
 		int totalnum = ba.length;
-		int i = 0;
 		for(byte[] ba2 : ba){
 			if(ba2 == null){
 				break;
 			}
-//        	Log.d("ConbuMusubiDBG", "Data2 --- "+Base64.encodeToString(ba2, Base64.DEFAULT));
 			JSONObject jso = new JSONObject();
 			jso.put("filename", mTmpFile.getName());
 			jso.put("sqnum", sqnum);
 			jso.put("totalnum", totalnum);
 
-//			jso.put("filedata", Base64.encodeToString(file2byte(mTmpFile), Base64.DEFAULT));
 			jso.put("filedata", Base64.encodeToString(ba2, Base64.DEFAULT));
 			
 			MemObj mbj = new MemObj("imgdata", jso);
 			mystack.push(mbj);
 			
 			Log.d("CombuMusubiDBG", "1==================================("+sqnum+"/"+totalnum+")");
-		    Handler handler = new Handler(); 
-		    handler.postDelayed(new Runnable() {
-		         public void run() {
-		        	 postMusubiFromRun();
-		         } 
-		    }, 3000 * i); 
 			Log.d("CombuMusubiDBG", "2==================================("+sqnum+"/"+totalnum+")");
 			
 			Toast.makeText(this, "Sent: "+sqnum+"/"+totalnum, Toast.LENGTH_SHORT).show();
 			sqnum++;
-			i++;
 		}
+	    postMusubiFromRun();
 	}
 	private void postMusubiFromRun(){
+		// Delayed Message Control
+	    Handler posthandler = new Handler(); 
+	    Runnable runnable = new Runnable() {
+	         public void run() {
+	        	 postMusubiFromRun();
+	         } 
+	    };
+	    if(mystack.isEmpty()){
+			return;
+		}
 		MemObj mbj = (MemObj)mystack.pop();
 		mMusubi.getFeed().postObj(mbj);
+		posthandler.postDelayed(runnable, 3000); 
 	}
 	
 	private void uploadToMyServer(String pathToOurFile){
 		HttpURLConnection connection = null;
 		DataOutputStream outputStream = null;
-		DataInputStream inputStream = null;
 
 		String urlServer = "http://mtrecimg.com/musubi/upload.php";
 		String lineEnd = "\r\n";
@@ -436,50 +409,15 @@ public class PostDataActivity extends Activity implements OnClickListener{
 	}
 
 	// Musubi---------------------------------------------------------------------------------------------
-	// get data from Musubi
-	/*
-	private void getMB(){
-		String localUname = mMusubi.getFeed().getLocalUser().getName();
-    	Log.d("CombuMusubi", "localUname:".concat(localUname));
-		Set<User> RemoteUnames = mMusubi.getFeed().getRemoteUsers();
-		
-    	Log.d("CombuMusubi", "RemoteUnames--->");
-        Iterator<User> ite = RemoteUnames.iterator();     //実際のプログラム中に、null判定を忘れずに  
-        while(ite.hasNext()) {              //ループ  
-        	User usr = ite.next();        //該当オブジェクト取得 
-        	Log.d("CombuMusubi", usr.getName());
-        }
-    	Log.d("CombuMusubi", "<---RemoteUnames");
-    	
-    	Uri myuri = mMusubi.getFeed().getUri();
-    	Log.d("CombuMusubi", "FeedUri:".concat(myuri.toString()));
-    	
-    	JSONObject jsobj = mMusubi.getFeed().getLatestObj();
-    	if(jsobj != null){
-    		Log.d("CombuMusubi", "LatestObj:".concat(jsobj.toString()));
-    	}
-	}
-	*/
 	// post message to Musubi
 	public void postMB(){
-        //mDungBeetle.getFeed().setApplicationState(getApplicationState(), getSnapshotText());
         try {
 			mMusubi.getFeed().postObj(getFeedRenderableObj());
         } catch (JSONException e) {
         	Log.wtf("CombuMusubi", "Failed to post through Musubi", e);
         }
 	}
-//	private AppState getAppState() throws JSONException {
-//        JSONObject o = new JSONObject();
-//    	o.put("data", poststr);
-//    	AppState as = new AppState(o);
-//    	as.arg = "arg";
-//    	as.thumbnailText = "thumbnailText";
-//    	as.thumbnailImage = "http://yimg.dip.jp/themes/day_break/logo2.gif";
-//    	as.thumbnailHtml = "<html><header></header><body><strong>thumbnailHtml</strong></body></html>";
-//    	return as;
-//	}
-	
+
 	private FeedObserver mFeedObserver = new FeedObserver() {
         @Override
         public void onUpdate(Obj stateObj){
@@ -499,6 +437,14 @@ public class PostDataActivity extends Activity implements OnClickListener{
             			Toast.makeText(PostDataActivity.this, "ImageData Received!", Toast.LENGTH_SHORT).show();
         			}
         			if(!state.isNull("filename")){
+    					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/converted_"+state.getString("filename");
+    					File orgfile = new File(fpath);
+    					if(orgfile.exists()){
+        					orgfile=null;
+    						return;
+    					}
+    					orgfile=null;
+
         				fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+state.getString("sqnum")+"_"+state.getString("filename")+".tmp";
         				Log.d("ConbuMusubi2", state.getString("filename"));
         				Log.d("ConbuMusubi2", "sqnum:"+state.getString("sqnum"));
@@ -510,7 +456,11 @@ public class PostDataActivity extends Activity implements OnClickListener{
         				
         				// try to conbine temporally files
         				int totalnum = Integer.parseInt(state.getString("totalnum"));
-        				// precheck
+
+    				    Runnable rb = new AnytimeToast("Rcv:"+state.getString("sqnum")+"/"+totalnum);
+    					handler.post(rb);
+
+    					// precheck
         				for(int i=1;i<=totalnum;i++){
         					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/copy"+i+"_"+state.getString("filename")+".tmp";
         					File rf = new File(fpath);
@@ -518,7 +468,8 @@ public class PostDataActivity extends Activity implements OnClickListener{
         						return;
         					}
         				}
-        				// if all files exist, try to conbine them and delete all.
+
+    					// if all files exist, try to conbine them and delete all.
     					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/converted_"+state.getString("filename");
     		            FileOutputStream fos=new FileOutputStream(fpath);
         				for(int i=1;i<=totalnum;i++){
@@ -529,12 +480,19 @@ public class PostDataActivity extends Activity implements OnClickListener{
         				}
     		            fos.close();
     		            
+    					fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/converted_"+state.getString("filename");
+    				    Runnable ac = new AnytimeChgimg(fpath);
+    					handler.post(ac);
+    		            
     		            // delete original file
         				fpath = Environment.getExternalStorageDirectory()+"/MusubiPictures/"+state.getString("sqnum")+state.getString("filename");
     					File rf = new File(fpath);
     					if(!rf.exists()){
     						rf.delete();
     					}
+    				    Runnable rb2 = new AnytimeToast("Received New Photo!");
+    					handler.post(rb2);
+
         			}
         			if(!state.isNull("data")){
         				getstr = state.getString("data");
@@ -558,7 +516,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
         	
         }
     };
-
+    
 	// FB---------------------------------------------------------------------------------------------
 	// post message to Facebook
 	public void postFB(){
@@ -609,10 +567,10 @@ public class PostDataActivity extends Activity implements OnClickListener{
     }
     
     // save FB login token
-    private void saveFBToken(String token, long tokenExpires){
-    	SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-    	prefs.edit().putString("FacebookToken", token).commit();
-    }
+//    private void saveFBToken(String token, long tokenExpires){
+//    	SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+//    	prefs.edit().putString("FacebookToken", token).commit();
+//    }
     
     // FB login
     public class LoginListener implements DialogListener
@@ -622,9 +580,6 @@ public class PostDataActivity extends Activity implements OnClickListener{
         {
     	  Toast.makeText(PostDataActivity.this, "FB login Completed.", Toast.LENGTH_SHORT).show();
     	  SessionStore.save(m_facebook, PostDataActivity.this);
-    	  
-//          m_facebook_runner = new AsyncFacebookRunner (m_facebook);
-//          m_facebook_runner.request ("me/friends", new FriendsRequestListener ());
         }
 
       @Override
@@ -654,20 +609,7 @@ public class PostDataActivity extends Activity implements OnClickListener{
 //          imageView.setImageURI(mImageUri);
           
           Bitmap myBitmap = BitmapFactory.decodeFile(mTmpFile.getAbsolutePath());
-          
-          Matrix matrix = new Matrix();
-          float rotation = rotationForImage(getBaseContext(), Uri.fromFile(mTmpFile));
-          if (rotation != 0f) {
-               matrix.preRotate(rotation);
-          }
-          Log.d("ConbuMusubi", "rotation: "+rotation);
-          
-          float h = myBitmap.getHeight();
-          float resizedscale = 200 / h;
-          matrix.postScale(resizedscale, resizedscale);
-
-          Bitmap resizedBitmap = Bitmap.createBitmap(
-               myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), matrix, true);
+          Bitmap resizedBitmap = getThumbBitmap(myBitmap);
           
           imageView.setImageBitmap(resizedBitmap);
               	  
@@ -682,9 +624,11 @@ public class PostDataActivity extends Activity implements OnClickListener{
           try {
         	  is = getContentResolver().openInputStream(uri);
               Bitmap myBitmap = BitmapFactory.decodeStream(is);
-              imageView.setImageBitmap(myBitmap);
-              
               mTmpFile = new File(getRealPathFromURI(uri));
+              
+              Bitmap resizedBitmap = getThumbBitmap(myBitmap);
+              imageView.setImageBitmap(resizedBitmap);
+              
           } catch (FileNotFoundException e) {
         	  // TODO Auto-generated catch block
         	  e.printStackTrace();
@@ -696,12 +640,29 @@ public class PostDataActivity extends Activity implements OnClickListener{
     }
  	
 	// Functions---------------------------------------------------------------------------------------------
+    private Bitmap getThumbBitmap(Bitmap myBitmap){
+        
+        Matrix matrix = new Matrix();
+        float rotation = rotationForImage(getBaseContext(), Uri.fromFile(mTmpFile));
+        if (rotation != 0f) {
+             matrix.preRotate(rotation);
+        }
+        Log.d("ConbuMusubi", "rotation: "+rotation);
+        
+        float h = myBitmap.getHeight();
+        float resizedscale = 200 / h;
+        matrix.postScale(resizedscale, resizedscale);
+
+        return Bitmap.createBitmap(
+             myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), matrix, true);
+    }          
+
     //file -> byte[]
     private byte[][] file2bytearr(File FileData) throws Exception {
         int size;
         int cntsize;
         int i = 0;
-        final int MAXFSIZE = 1024 * 100; // 100KB
+        final int MAXFSIZE = 1024 * 300; // 100KB
         final int MAXARRNUM = (int)Math.ceil((FileData.length() / (double)MAXFSIZE));
         
         byte[][] rt = new byte[MAXARRNUM][MAXFSIZE];
@@ -828,4 +789,31 @@ public class PostDataActivity extends Activity implements OnClickListener{
 
         return cursor.getString(column_index);
     }
+
+    // Toast for non-UI thread
+    private class AnytimeToast implements Runnable {
+    	private String msg;
+    	public AnytimeToast(String mymsg) {
+    		msg = mymsg;
+    	}
+    	public void run() {
+			Toast.makeText(PostDataActivity.this, msg, Toast.LENGTH_SHORT).show();
+    	}
+    }
+    
+    // Change Image for non-UI thread
+    private class AnytimeChgimg implements Runnable {
+    	private String fpath;
+    	public AnytimeChgimg(String filepath) {
+    		fpath = filepath;
+    	}
+    	public void run() {
+            Bitmap myBitmap = BitmapFactory.decodeFile(fpath);
+            Bitmap resizedBitmap = getThumbBitmap(myBitmap);
+            
+            ImageView imageView = (ImageView) findViewById(R.id.imgpreview);
+            imageView.setImageBitmap(resizedBitmap);
+    	}
+    }
+
 }

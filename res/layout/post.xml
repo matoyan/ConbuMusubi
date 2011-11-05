@@ -12,7 +12,7 @@
 
 		<EditText
 			android:id="@+id/postText"
-			android:text="@string/testing"
+			android:hint="@string/hinttxt"
 			android:layout_span="2"
 			android:layout_width="fill_parent"
 			android:layout_height="wrap_content" />
@@ -63,10 +63,6 @@
         android:layout_height="wrap_content"
         android:text="Submit to Musubi" />
 
-	    <Button android:id="@+id/getMB"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:text="Get Data from Musubi" />
 
         </LinearLayout>
     </LinearLayout>
